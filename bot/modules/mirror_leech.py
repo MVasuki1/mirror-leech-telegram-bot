@@ -7,12 +7,13 @@ from asyncio import sleep
 from aiofiles.os import path as aiopath
 
 from bot import bot, DOWNLOAD_DIR, LOGGER, config_dict
-from bot.helper.ext_utils.bot_utils import is_url, is_magnet, is_mega_link, is_gdrive_link, get_content_type, new_task, sync_to_async, is_rclone_path
+from bot.helper.ext_utils.bot_utils import is_url, is_magnet, is_gdrive_link, get_content_type, new_task, sync_to_async, is_rclone_path
+#from bot.helper.ext_utils.bot_utils import is_mega_link
 from bot.helper.ext_utils.exceptions import DirectDownloadLinkException
 from bot.helper.mirror_utils.download_utils.aria2_download import add_aria2c_download
 from bot.helper.mirror_utils.download_utils.gd_download import add_gd_download
 from bot.helper.mirror_utils.download_utils.qbit_download import add_qb_torrent
-from bot.helper.mirror_utils.download_utils.mega_download import add_mega_download
+#from bot.helper.mirror_utils.download_utils.mega_download import add_mega_download
 from bot.helper.mirror_utils.download_utils.rclone_download import add_rclone_download
 from bot.helper.mirror_utils.rclone_utils.list import RcloneList
 from bot.helper.mirror_utils.download_utils.direct_link_generator import direct_link_generator
@@ -23,6 +24,12 @@ from bot.helper.telegram_helper.message_utils import sendMessage
 from bot.helper.listeners.tasks_listener import MirrorLeechListener
 from bot.helper.ext_utils.help_messages import MIRROR_HELP_MESSAGE
 
+
+def is_mega_link(link):
+    return False
+
+def add_mega_download(*args, **kwargs):
+    pass
 
 @new_task
 async def _mirror_leech(client, message, isZip=False, extract=False, isQbit=False, isLeech=False, sameDir={}):
@@ -196,7 +203,7 @@ async def _mirror_leech(client, message, isZip=False, extract=False, isQbit=Fals
         if not is_rclone_path(up):
             await sendMessage(message, up)
             return
-
+    
     listener = MirrorLeechListener(
         message, isZip, extract, isQbit, isLeech, pswd, tag, select, seed, sameDir, rcf, up)
 
