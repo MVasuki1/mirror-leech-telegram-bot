@@ -108,9 +108,10 @@ async def __qb_listener():
                     break
                 for tor_info in await sync_to_async(client.torrents_info):
                     tag = tor_info.tags
-                    if tag not in QbTorrents:
-                        continue
                     state = tor_info.state
+                    if tag not in QbTorrents:
+                        QbTorrents[tag] = {'stalled_time': time(
+                        ), 'stop_dup_check': False, 'rechecked': False, 'uploaded': False, 'seeding': False}
                     if state == "metaDL":
                         TORRENT_TIMEOUT = config_dict['TORRENT_TIMEOUT']
                         QbTorrents[tag]['stalled_time'] = time()
@@ -141,6 +142,7 @@ async def __qb_listener():
                     elif state == "error":
                         __onDownloadError(
                             "No enough space for this torrent on device", tor_info)
+                    
                     elif tor_info.completion_on != 0 and not QbTorrents[tag]['uploaded'] and \
                             state not in ['checkingUP', 'checkingDL', 'checkingResumeData']:
                         QbTorrents[tag]['uploaded'] = True
