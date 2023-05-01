@@ -129,6 +129,13 @@ async def rssSub(client, message, pre_event):
             msg += f"\n<b>Filters:-</b>\ninf: <code>{inf}</code>\nexf: <code>{exf}<code/>"
             msg += f"\nOptions: {opt}\n\n"
             async with rss_dict_lock:
+                # Set last_link and last_title blank
+                # So that all entries are processed the first time it runs.
+                # defaults to qbleech ql
+                if cmd is None:
+                    cmd = 'ql'
+                    last_link = ''
+                    last_title = ''
                 if rss_dict.get(user_id, False):
                     rss_dict[user_id][title] = {'link': feed_link, 'last_feed': last_link, 'last_title': last_title,
                                                 'inf': inf_lists, 'exf': exf_lists, 'paused': False, 'command': cmd, 'options': opt, 'tag': tag}
@@ -143,6 +150,7 @@ async def rssSub(client, message, pre_event):
         except Exception as e:
             await sendMessage(message, str(e))
     if DATABASE_URL:
+        LOGGER.info(f'update {user_id} rss')
         await DbManger().rss_update(user_id)
     if msg:
         await sendMessage(message, msg)
@@ -151,7 +159,7 @@ async def rssSub(client, message, pre_event):
 
 async def getUserId(title):
     async with rss_dict_lock:
-        return next(((True, user_id) for user_id, feed in list(rss_dict.items()) if feed['title'] == title), (False, False))
+        return next(((True, user_id) for user_id, feed in list(rss_dict.items()) if feed.get('title') == title), (False, False))
 
 
 async def rssUpdate(client, message, pre_event, state):
@@ -568,8 +576,10 @@ async def rssMonitor():
         LOGGER.warning('RSS_CHAT_ID not added! Shutting down rss scheduler...')
         scheduler.shutdown(wait=False)
         return
+    #await DbManger().db_load()
+    LOGGER.info(f'{len(rss_dict)}')
     if len(rss_dict) == 0:
-        scheduler.pause()
+        #scheduler.pause()
         return
     all_paused = True
     for user, items in list(rss_dict.items()):
