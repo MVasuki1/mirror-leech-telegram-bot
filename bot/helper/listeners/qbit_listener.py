@@ -110,8 +110,7 @@ async def __qb_listener():
                     tag = tor_info.tags
                     state = tor_info.state
                     if tag not in QbTorrents:
-                        QbTorrents[tag] = {'stalled_time': time(
-                        ), 'stop_dup_check': False, 'rechecked': False, 'uploaded': False, 'seeding': False}
+                        continue
                     if state == "metaDL":
                         TORRENT_TIMEOUT = config_dict['TORRENT_TIMEOUT']
                         QbTorrents[tag]['stalled_time'] = time()
