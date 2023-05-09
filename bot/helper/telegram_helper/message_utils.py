@@ -107,7 +107,6 @@ async def get_tg_link_content(link):
         superChat = True
     else:
         superChat = False
-
     if private:
         if not user:
             raise Exception('USER_SESSION_STRING required for this private link!')
@@ -115,9 +114,9 @@ async def get_tg_link_content(link):
             return message, True
         else:
             raise Exception("You Don't have access to this message!")
-    elif superChat and (message := await bot.get_messages(chat_id=chat, message_ids=msg_id)) and message.from_user:
+    elif superChat and (message := await bot.get_messages(chat_id=chat, message_ids=msg_id)):
         return message, False
-    elif user and (message := await user.get_messages(chat_id=chat, message_ids=msg_id)) and message.from_user:
+    elif user and (message := await user.get_messages(chat_id=chat, message_ids=msg_id)):
         message = await user.get_messages(chat_id=chat, message_ids=msg_id)
         return message, True
     else:
