@@ -44,14 +44,17 @@ async def sendFile(message, file, caption=None):
         return str(e)
 
 
-async def sendRss(text):
+async def sendRss(text, url=None):
+    LOGGER.info(text)
     try:
         if user:
-            return await user.send_message(chat_id=config_dict['RSS_CHAT_ID'], text=text, disable_web_page_preview=True,
-                                           disable_notification=True)
+            return await user.send_message(chat_id=config_dict['RSS_CHAT_ID'], text=text, disable_web_page_preview=True, disable_notification=True)
+            #if url:
+            #    return await user.send_message(chat_id=config_dict['RSS_CHAT_LOG'], text=url, disable_web_page_preview=True, disable_notification=True)
         else:
-            return await bot.send_message(chat_id=config_dict['RSS_CHAT_ID'], text=text, disable_web_page_preview=True,
-                                          disable_notification=True)
+            return await bot.send_message(chat_id=config_dict['RSS_CHAT_ID'], text=text, disable_web_page_preview=True, disable_notification=True)
+            #if url:
+            #    return await bot.send_message(chat_id=config_dict['RSS_CHAT_LOG'], text=url, disable_web_page_preview=True, disable_notification=True)
     except FloodWait as f:
         LOGGER.warning(str(f))
         await sleep(f.value * 1.2)

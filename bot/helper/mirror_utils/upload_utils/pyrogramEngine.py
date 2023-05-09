@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import traceback
 from logging import getLogger, ERROR
 from aiofiles.os import remove as aioremove, path as aiopath, rename as aiorename, makedirs
 from os import walk, path as ospath
@@ -12,10 +13,13 @@ from re import match as re_match, sub as re_sub
 from natsort import natsorted
 from aioshutil import copy
 
-from bot import config_dict, user_data, GLOBAL_EXTENSION_FILTER, bot, user, IS_PREMIUM_USER
+from bot import config_dict, user_data, GLOBAL_EXTENSION_EXCLUSION_FILTER, GLOBAL_EXTENSION_INCLUSION_FILTER, bot, user, IS_PREMIUM_USER
+#, TELEGRAM_API, TELEGRAM_HASH, TELEGRAM_USERNAME
+#from bot.modules.FastTelethon import upload_file
 from bot.helper.ext_utils.fs_utils import clean_unwanted, is_archive, get_base_name
 from bot.helper.ext_utils.bot_utils import sync_to_async
 from bot.helper.ext_utils.leech_utils import get_media_info, get_document_type, take_ss
+#from telethon import TelegramClient
 
 LOGGER = getLogger(__name__)
 getLogger("pyrogram").setLevel(ERROR)
@@ -23,7 +27,9 @@ getLogger("pyrogram").setLevel(ERROR)
 
 class TgUploader:
 
-    def __init__(self, name=None, path=None, listener=None):
+    def __init__(self, name=None, path=None, listener=None, custom_dump_chat_id=None):
+        if custom_dump_chat_id is not None:
+            LOGGER.info(f'Custom dump chat ID is {custom_dump_chat_id}')
         self.name = name
         self.__last_uploaded = 0
         self.__processed_bytes = 0
@@ -42,6 +48,7 @@ class TgUploader:
         self.__lprefix = ''
         self.__as_doc = False
         self.__media_group = False
+        self.__custom_dump_chat_id = custom_dump_chat_id
 
     async def __upload_progress(self, current, total):
         if self.__is_cancelled:
@@ -65,23 +72,25 @@ class TgUploader:
             self.__thumb = None
 
     async def __msg_to_reply(self):
-        if DUMP_CHAT_ID := config_dict['DUMP_CHAT_ID']:
-            msg = self.__listener.message.link if self.__listener.isSuperGroup else self.__listener.message.text
-            if IS_PREMIUM_USER:
-                self.__sent_msg = await user.send_message(chat_id=DUMP_CHAT_ID, text=msg,
-                                                          disable_web_page_preview=False, disable_notification=True)
-            else:
-                self.__sent_msg = await bot.send_message(chat_id=DUMP_CHAT_ID, text=msg,
-                                                         disable_web_page_preview=False, disable_notification=True)
-        elif IS_PREMIUM_USER:
-            if not self.__listener.isSuperGroup:
-                await self.__listener.onUploadError('Use SuperGroup to leech with User!')
-                return
-            self.__sent_msg = await user.get_messages(chat_id=self.__listener.message.chat.id,
-                                                      message_ids=self.__listener.uid)
+        if not (DUMP_CHAT_ID := self.__custom_dump_chat_id):
+            DUMP_CHAT_ID = config_dict['DUMP_CHAT_ID']
+            
+        msg = self.__listener.message.link if self.__listener.isSuperGroup else self.__listener.message.text
+        if IS_PREMIUM_USER:
+            self.__sent_msg = await user.send_message(chat_id=DUMP_CHAT_ID, text=msg,
+                                                      disable_web_page_preview=False, disable_notification=True)
         else:
-            self.__sent_msg = self.__listener.message
-
+            self.__sent_msg = await bot.send_message(chat_id=DUMP_CHAT_ID, text=msg,
+                                                     disable_web_page_preview=False, disable_notification=True)
+        #if IS_PREMIUM_USER:
+        #    if not self.__listener.isSuperGroup:
+        #        await self.__listener.onUploadError('Use SuperGroup to leech with User!')
+        #        return
+        #    self.__sent_msg = await user.get_messages(chat_id=self.__listener.message.chat.id,
+        #                                              message_ids=self.__listener.uid)
+        #else:
+        #    self.__sent_msg = self.__listener.message
+        self.__sent_msg_init = self.__sent_msg
     async def __prepare_file(self, file_, dirpath):
         if self.__lprefix:
             cap_mono = f"{self.__lprefix} <code>{file_}</code>"
@@ -160,7 +169,10 @@ class TgUploader:
                 continue
             for file_ in natsorted(files):
                 self.__up_path = ospath.join(dirpath, file_)
-                if file_.lower().endswith(tuple(GLOBAL_EXTENSION_FILTER)):
+                if file_.lower().endswith(tuple(GLOBAL_EXTENSION_EXCLUSION_FILTER)):
+                    await aioremove(self.__up_path)
+                    continue
+                if not file_.lower().endswith(tuple(GLOBAL_EXTENSION_INCLUSION_FILTER)):
                     await aioremove(self.__up_path)
                     continue
                 try:
@@ -221,6 +233,7 @@ class TgUploader:
             await self.__listener.onUploadError('Files Corrupted or unable to upload. Check logs!')
             return
         LOGGER.info(f"Leech Completed: {self.name}")
+        await self.__sent_msg_init.delete()
         await self.__listener.onUploadComplete(None, size, self.__msgs_dict, self.__total_files, self.__corrupted, self.name)
 
     @retry(wait=wait_exponential(multiplier=2, min=4, max=8), stop=stop_after_attempt(3),
@@ -238,9 +251,13 @@ class TgUploader:
                 thumb_path = f"{self.__path}/yt-dlp-thumb/{file_name}.jpg"
                 if await aiopath.isfile(thumb_path):
                     thumb = thumb_path
+            #with open(self.__up_path, 'rb') as up_file_rb:
+            #    fast_upload_id = await upload_file(self.__telethon, up_file_rb, progress_callback = self.__upload_progress)
+            #LOGGER.info(fast_upload_id)
 
             if self.__as_doc or force_document or (not is_video and not is_audio and not is_image):
                 key = 'documents'
+                LOGGER.info(key)
                 if is_video and thumb is None:
                     thumb = await take_ss(self.__up_path, None)
                 if self.__is_cancelled:
@@ -254,9 +271,10 @@ class TgUploader:
                                                                        progress=self.__upload_progress)
             elif is_video:
                 key = 'videos'
+                LOGGER.info(key)
                 duration = (await get_media_info(self.__up_path))[0]
-                if thumb is None:
-                    thumb = await take_ss(self.__up_path, duration)
+                #if thumb is None:
+                #    thumb = await take_ss(self.__up_path, duration)
                 if thumb is not None:
                     with Image.open(thumb) as img:
                         width, height = img.size
@@ -277,6 +295,7 @@ class TgUploader:
                         self.__up_path = new_path
                 if self.__is_cancelled:
                     return
+                
                 self.__sent_msg = await self.__sent_msg.reply_video(video=self.__up_path,
                                                                     quote=True,
                                                                     caption=cap_mono,
@@ -289,6 +308,7 @@ class TgUploader:
                                                                     progress=self.__upload_progress)
             elif is_audio:
                 key = 'audios'
+                LOGGER.info(key)
                 duration, artist, title = await get_media_info(self.__up_path)
                 if self.__is_cancelled:
                     return
@@ -303,6 +323,7 @@ class TgUploader:
                                                                     progress=self.__upload_progress)
             else:
                 key = 'photos'
+                LOGGER.info(key)
                 if self.__is_cancelled:
                     return
                 self.__sent_msg = await self.__sent_msg.reply_photo(photo=self.__up_path,
@@ -334,6 +355,7 @@ class TgUploader:
             if self.__thumb is None and thumb is not None and await aiopath.exists(thumb):
                 await aioremove(thumb)
             err_type = "RPCError: " if isinstance(err, RPCError) else ""
+            LOGGER.error(traceback.format_exc())
             LOGGER.error(f"{err_type}{err}. Path: {self.__up_path}")
             if 'Telegram says: [400' in str(err) and key != 'documents':
                 LOGGER.error(f"Retrying As Document. Path: {self.__up_path}")

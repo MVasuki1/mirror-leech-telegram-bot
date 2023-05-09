@@ -171,6 +171,9 @@ async def load_config():
 
     RSS_CHAT_ID = environ.get('RSS_CHAT_ID', '')
     RSS_CHAT_ID = '' if len(RSS_CHAT_ID) == 0 else int(RSS_CHAT_ID)
+    
+    RSS_CHAT_LOG = environ.get('RSS_CHAT_LOG', '')
+    RSS_CHAT_LOG = '' if len(RSS_CHAT_LOG) == 0 else int(RSS_CHAT_LOG)
 
     RSS_DELAY = environ.get('RSS_DELAY', '')
     RSS_DELAY = 900 if len(RSS_DELAY) == 0 else int(RSS_DELAY)
@@ -327,6 +330,7 @@ async def load_config():
                         'RCLONE_SERVE_PASS': RCLONE_SERVE_PASS,
                         'RCLONE_SERVE_PORT': RCLONE_SERVE_PORT,
                         'RSS_CHAT_ID': RSS_CHAT_ID,
+                        'RSS_CHAT_LOG': RSS_CHAT_LOG,
                         'RSS_DELAY': RSS_DELAY,
                         'SEARCH_API_LINK': SEARCH_API_LINK,
                         'SEARCH_LIMIT': SEARCH_LIMIT,

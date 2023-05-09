@@ -203,7 +203,7 @@ async def _mirror_leech(client, message, isZip=False, extract=False, isQbit=Fals
         if not is_rclone_path(up):
             await sendMessage(message, up)
             return
-    
+
     listener = MirrorLeechListener(
         message, isZip, extract, isQbit, isLeech, pswd, tag, select, seed, sameDir, rcf, up)
 

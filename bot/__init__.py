@@ -15,6 +15,7 @@ from faulthandler import enable as faulthandler_enable
 from socket import setdefaulttimeout
 from logging import getLogger, FileHandler, StreamHandler, INFO, basicConfig, error as log_error, info as log_info, warning as log_warning
 from uvloop import install
+import json
 
 faulthandler_enable()
 install()
@@ -36,7 +37,9 @@ QbTorrents = {}
 DRIVES_NAMES = []
 DRIVES_IDS = []
 INDEX_URLS = []
-GLOBAL_EXTENSION_FILTER = ['aria2']
+GLOBAL_EXTENSION_FILTER = ['aria2', 'nfo', 'txt']
+GLOBAL_EXTENSION_EXCLUSION_FILTER = ['aria2', 'nfo', 'txt']
+GLOBAL_EXTENSION_INCLUSION_FILTER = ['mkv', 'mp4', 'avi']
 user_data = {}
 aria2_options = {}
 qbit_options = {}
@@ -56,6 +59,8 @@ download_dict_lock = Lock()
 status_reply_dict_lock = Lock()
 queue_dict_lock = Lock()
 qb_listener_lock = Lock()
+custom_dump_dict_lock = Lock()
+custom_dump_dict = {}
 status_reply_dict = {}
 download_dict = {}
 rss_dict = {}
@@ -127,6 +132,8 @@ if len(TELEGRAM_HASH) == 0:
     log_error("TELEGRAM_HASH variable is missing! Exiting now")
     exit(1)
 
+TELEGRAM_USERNAME = environ.get('TELEGRAM_USERNAME', '')
+
 GDRIVE_ID = environ.get('GDRIVE_ID', '')
 if len(GDRIVE_ID) == 0:
     GDRIVE_ID = ''
@@ -172,6 +179,8 @@ if len(EXTENSION_FILTER) > 0:
 IS_PREMIUM_USER = False
 user = ''
 USER_SESSION_STRING = environ.get('USER_SESSION_STRING', '')
+LOGGER.info(environ.get('TELETHON_SESSIONS_LIST', '[]'))
+
 if len(USER_SESSION_STRING) != 0:
     log_info("Creating client from USER_SESSION_STRING")
     user = tgClient('user', TELEGRAM_API, TELEGRAM_HASH, session_string=USER_SESSION_STRING,
@@ -242,6 +251,9 @@ CMD_SUFFIX = environ.get('CMD_SUFFIX', '')
 
 RSS_CHAT_ID = environ.get('RSS_CHAT_ID', '')
 RSS_CHAT_ID = '' if len(RSS_CHAT_ID) == 0 else int(RSS_CHAT_ID)
+
+RSS_CHAT_LOG = environ.get('RSS_CHAT_LOG', '')
+RSS_CHAT_LOG = '' if len(RSS_CHAT_LOG) == 0 else int(RSS_CHAT_LOG)
 
 RSS_DELAY = environ.get('RSS_DELAY', '')
 RSS_DELAY = 900 if len(RSS_DELAY) == 0 else int(RSS_DELAY)
@@ -347,6 +359,7 @@ config_dict = {'AS_DOCUMENT': AS_DOCUMENT,
                'RCLONE_SERVE_PASS': RCLONE_SERVE_PASS,
                'RCLONE_SERVE_PORT': RCLONE_SERVE_PORT,
                'RSS_CHAT_ID': RSS_CHAT_ID,
+               'RSS_CHAT_LOG': RSS_CHAT_LOG,
                'RSS_DELAY': RSS_DELAY,
                'SEARCH_API_LINK': SEARCH_API_LINK,
                'SEARCH_LIMIT': SEARCH_LIMIT,
@@ -461,3 +474,4 @@ bot_loop = bot.loop
 bot_name = bot.me.username
 scheduler = AsyncIOScheduler(timezone=str(
     get_localzone()), event_loop=bot_loop)
+

@@ -17,3 +17,8 @@ bot.session*
 user.session
 terabox.txt
 rclone.conf
+credentials.json
+token.pickle
+*.session*
+lockfile
+storage.lock

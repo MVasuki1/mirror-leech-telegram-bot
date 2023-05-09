@@ -8,7 +8,7 @@ from asyncio import create_subprocess_exec, sleep, Event
 
 from bot import Interval, aria2, DOWNLOAD_DIR, download_dict, download_dict_lock, LOGGER, DATABASE_URL, \
     MAX_SPLIT_SIZE, config_dict, status_reply_dict_lock, user_data, non_queued_up, non_queued_dl, queued_up, \
-    queued_dl, queue_dict_lock
+    queued_dl, queue_dict_lock, custom_dump_dict, custom_dump_dict_lock
 from bot.helper.ext_utils.bot_utils import sync_to_async, get_readable_file_size
 from bot.helper.ext_utils.fs_utils import get_base_name, get_path_size, clean_download, clean_target, \
     is_first_archive_split, is_archive, is_archive_split
@@ -272,7 +272,12 @@ class MirrorLeechListener:
             for s in m_size:
                 size = size - s
             LOGGER.info(f"Leech Name: {up_name}")
-            tg = TgUploader(up_name, up_dir, self)
+            custom_dump = None
+            try:
+                custom_dump = custom_dump_dict.get(self.message.text.split()[1])
+            except:
+                pass
+            tg = TgUploader(up_name, up_dir, self, custom_dump)
             tg_upload_status = TelegramStatus(
                 tg, size, self.message, gid, 'up')
             async with download_dict_lock:
@@ -303,6 +308,14 @@ class MirrorLeechListener:
             await DbManger().rm_complete_task(self.message.link)
         msg = f"<b>Name: </b><code>{escape(name)}</code>\n\n<b>Size: </b>{get_readable_file_size(size)}"
         LOGGER.info(f'Task Done: {name}')
+        async with custom_dump_dict_lock:
+            try:
+                custom_dump_key = self.message.text.split()[1]
+                if custom_dump_key in custom_dump_dict:
+                    custom_dump_dict.pop(custom_dump_key)
+            except:
+                pass
+
         if self.isLeech:
             msg += f'\n<b>Total Files: </b>{folders}'
             if mime_type != 0:
