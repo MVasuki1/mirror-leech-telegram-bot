@@ -4,6 +4,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pyrogram import Client as tgClient, enums
 from pymongo import MongoClient
 from asyncio import Lock
+from telethon.sync import TelegramClient
+import json
 from dotenv import load_dotenv, dotenv_values
 from threading import Thread
 from time import sleep, time
@@ -179,7 +181,13 @@ if len(EXTENSION_FILTER) > 0:
 IS_PREMIUM_USER = False
 user = ''
 USER_SESSION_STRING = environ.get('USER_SESSION_STRING', '')
-LOGGER.info(environ.get('TELETHON_SESSIONS_LIST', '[]'))
+
+TELETHON_SESSIONS = []
+for session_file in json.loads(environ.get('TELETHON_SESSIONS_LIST', '[]')):
+    client = TelegramClient(f'./{session_file}', TELEGRAM_API, TELEGRAM_HASH)
+    client.start()
+    TELETHON_SESSIONS.append((client, Lock()))
+TELETHON_SESSION_ACQUIRE = Lock()
 
 if len(USER_SESSION_STRING) != 0:
     log_info("Creating client from USER_SESSION_STRING")

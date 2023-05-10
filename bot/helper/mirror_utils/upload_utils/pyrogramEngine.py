@@ -7,6 +7,8 @@ from time import time
 from PIL import Image
 from pyrogram.types import InputMediaVideo, InputMediaDocument
 from pyrogram.errors import FloodWait, RPCError
+from telethon.errors import FloodWaitError
+from os.path import basename
 from asyncio import sleep
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type, RetryError
 from re import match as re_match, sub as re_sub
@@ -14,12 +16,12 @@ from natsort import natsorted
 from aioshutil import copy
 
 from bot import config_dict, user_data, GLOBAL_EXTENSION_EXCLUSION_FILTER, GLOBAL_EXTENSION_INCLUSION_FILTER, bot, user, IS_PREMIUM_USER
-#, TELEGRAM_API, TELEGRAM_HASH, TELEGRAM_USERNAME
-#from bot.modules.FastTelethon import upload_file
+from bot.modules.FastTelethon import upload_file
+from bot.modules.telethon_client import get_telethon_client
 from bot.helper.ext_utils.fs_utils import clean_unwanted, is_archive, get_base_name
 from bot.helper.ext_utils.bot_utils import sync_to_async
 from bot.helper.ext_utils.leech_utils import get_media_info, get_document_type, take_ss
-#from telethon import TelegramClient
+
 
 LOGGER = getLogger(__name__)
 getLogger("pyrogram").setLevel(ERROR)
@@ -28,8 +30,6 @@ getLogger("pyrogram").setLevel(ERROR)
 class TgUploader:
 
     def __init__(self, name=None, path=None, listener=None, custom_dump_chat_id=None):
-        if custom_dump_chat_id is not None:
-            LOGGER.info(f'Custom dump chat ID is {custom_dump_chat_id}')
         self.name = name
         self.__last_uploaded = 0
         self.__processed_bytes = 0
@@ -74,7 +74,7 @@ class TgUploader:
     async def __msg_to_reply(self):
         if not (DUMP_CHAT_ID := self.__custom_dump_chat_id):
             DUMP_CHAT_ID = config_dict['DUMP_CHAT_ID']
-            
+        self.DUMP_CHAT_ID = DUMP_CHAT_ID
         msg = self.__listener.message.link if self.__listener.isSuperGroup else self.__listener.message.text
         if IS_PREMIUM_USER:
             self.__sent_msg = await user.send_message(chat_id=DUMP_CHAT_ID, text=msg,
@@ -164,6 +164,18 @@ class TgUploader:
     async def upload(self, o_files, m_size, size):
         await self.__msg_to_reply()
         await self.__user_settings()
+        self.__telethon_client, telethon_lock = await get_telethon_client()
+        self.__upload_file = self.__upload_file_pyrogram if self.__telethon_client is None else self.__upload_file_telethon
+        try:
+            if telethon_lock is not None:
+                async with telethon_lock:
+                    await self.upload_wrapper(o_files, m_size, size)
+            else:
+                await self.upload_wrapper(o_files, m_size, size)
+        except Exception as e:
+            LOGGER.error(traceback.format_exc())
+
+    async def upload_wrapper(self, o_files, m_size, size):
         for dirpath, _, files in sorted(await sync_to_async(walk, self.__path)):
             if dirpath.endswith('/yt-dlp-thumb'):
                 continue
@@ -238,7 +250,48 @@ class TgUploader:
 
     @retry(wait=wait_exponential(multiplier=2, min=4, max=8), stop=stop_after_attempt(3),
            retry=retry_if_exception_type(Exception))
-    async def __upload_file(self, cap_mono, file, force_document=False):
+    async def __upload_file_telethon(self, cap_mono, file, force_document=False):
+        LOGGER.info('telethon upload iinit')
+        if self.__telethon_client is None:
+            self.__upload_file_pyrogram(cap_mono, file, force_document=False)
+            return
+        LOGGER.info('telethon upload')
+        if self.__thumb is not None and not await aiopath.exists(self.__thumb):
+            self.__thumb = None
+        thumb = self.__thumb
+        self.__is_corrupted = False
+        try:
+            filename = basename(self.__up_path)
+
+            with open(self.__up_path, 'rb') as up_file_rb:
+                fast_telethon_upload_res = await upload_file(self.__telethon_client,
+                                                             up_file_rb,
+                                                             progress_callback = self.__upload_progress,
+                                                             filename=filename)
+
+            if self.__is_cancelled:
+                return
+            await self.__telethon_client.send_message(self.DUMP_CHAT_ID,
+                                                      message=filename,
+                                                      file=fast_telethon_upload_res,
+                                                      force_document=True)
+        except FloodWaitError as f:
+            LOGGER.warning(str(f))
+            await sleep(f.value)
+        except Exception as err:
+            if self.__thumb is None and thumb is not None and await aiopath.exists(thumb):
+                await aioremove(thumb)
+            err_type = "RPCError: " if isinstance(err, RPCError) else ""
+            LOGGER.error(traceback.format_exc())
+            LOGGER.error(f"{err_type}{err}. Path: {self.__up_path}")
+            if 'Telegram says: [400' in str(err):
+                LOGGER.error(f"Retryingt. Path: {self.__up_path}")
+                return await self.__upload_file(cap_mono, file, True)
+            raise err
+
+    @retry(wait=wait_exponential(multiplier=2, min=4, max=8), stop=stop_after_attempt(3),
+           retry=retry_if_exception_type(Exception))
+    async def __upload_file_pyrogram(self, cap_mono, file, force_document=False):
         if self.__thumb is not None and not await aiopath.exists(self.__thumb):
             self.__thumb = None
         thumb = self.__thumb
@@ -251,15 +304,12 @@ class TgUploader:
                 thumb_path = f"{self.__path}/yt-dlp-thumb/{file_name}.jpg"
                 if await aiopath.isfile(thumb_path):
                     thumb = thumb_path
-            #with open(self.__up_path, 'rb') as up_file_rb:
-            #    fast_upload_id = await upload_file(self.__telethon, up_file_rb, progress_callback = self.__upload_progress)
-            #LOGGER.info(fast_upload_id)
 
             if self.__as_doc or force_document or (not is_video and not is_audio and not is_image):
                 key = 'documents'
                 LOGGER.info(key)
-                if is_video and thumb is None:
-                    thumb = await take_ss(self.__up_path, None)
+                #if is_video and thumb is None:
+                #    thumb = await take_ss(self.__up_path, None)
                 if self.__is_cancelled:
                     return
                 self.__sent_msg = await self.__sent_msg.reply_document(document=self.__up_path,
