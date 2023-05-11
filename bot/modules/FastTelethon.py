@@ -8,7 +8,7 @@ import math
 import os
 from collections import defaultdict
 from typing import Optional, List, AsyncGenerator, Union, Awaitable, DefaultDict, Tuple, BinaryIO
-
+from pyrogram import StopTransmission
 from telethon import utils, helpers, TelegramClient
 from telethon.crypto import AuthKey
 from telethon.network import MTProtoSender
@@ -27,6 +27,7 @@ except ImportError:
     async_encrypt_attachment = None
 
 log: logging.Logger = logging.getLogger("telethon")
+log.setLevel(logging.ERROR)
 
 TypeLocation = Union[Document, InputDocumentFileLocation, InputPeerPhotoFileLocation,
                      InputFileLocation, InputPhotoFileLocation]
@@ -305,5 +306,8 @@ async def upload_file(client: TelegramClient,
                       progress_callback: callable = None,
                       filename: str = "upload",
                       ) -> TypeInputFile:
-    res = (await _internal_transfer_to_telegram(client, file, progress_callback, filename))[0]
-    return res
+    try:
+        res = (await _internal_transfer_to_telegram(client, file, progress_callback, filename))[0]
+        return res
+    except StopTransmission:
+        return None

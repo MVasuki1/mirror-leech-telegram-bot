@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-from asyncio import sleep
+from asyncio import sleep, wait_for
 from time import time
 
-from bot import download_dict, download_dict_lock, get_client, QbInterval, config_dict, QbTorrents, qb_listener_lock, LOGGER, bot_loop
+from bot import download_dict, download_dict_lock, get_client, QbInterval, config_dict, QbTorrents, qb_listener_lock, LOGGER, bot_loop, bot_loop_tasks, bot_loop_tasks_lock
 from bot.helper.mirror_utils.status_utils.qbit_status import QbittorrentStatus
 from bot.helper.telegram_helper.message_utils import update_all_messages
 from bot.helper.ext_utils.bot_utils import get_readable_time, getDownloadByGid, new_task, sync_to_async
@@ -145,7 +145,11 @@ async def __qb_listener():
                     elif tor_info.completion_on != 0 and not QbTorrents[tag]['uploaded'] and \
                             state not in ['checkingUP', 'checkingDL', 'checkingResumeData', 'pausedDL']:
                         QbTorrents[tag]['uploaded'] = True
-                        __onDownloadComplete(tor_info)
+                        pending_task = __onDownloadComplete(tor_info)
+                        # storing task reference in a global list
+                        # Coz for some reason the task is killed when this listener is done.
+                        async with bot_loop_tasks_lock:
+                            bot_loop_tasks.append(pending_task)
                     elif state in ['pausedUP', 'pausedDL'] and QbTorrents[tag]['seeding']:
                         QbTorrents[tag]['seeding'] = False
                         __onSeedFinish(tor_info)

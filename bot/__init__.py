@@ -185,7 +185,7 @@ USER_SESSION_STRING = environ.get('USER_SESSION_STRING', '')
 TELETHON_SESSIONS = []
 for session_file in json.loads(environ.get('TELETHON_SESSIONS_LIST', '[]')):
     client = TelegramClient(f'./{session_file}', TELEGRAM_API, TELEGRAM_HASH)
-    client.start()
+    #client.start()
     TELETHON_SESSIONS.append((client, Lock()))
 TELETHON_SESSION_ACQUIRE = Lock()
 
@@ -483,3 +483,5 @@ bot_name = bot.me.username
 scheduler = AsyncIOScheduler(timezone=str(
     get_localzone()), event_loop=bot_loop)
 
+bot_loop_tasks = []
+bot_loop_tasks_lock = Lock()

@@ -169,7 +169,10 @@ class TgUploader:
         try:
             if telethon_lock is not None:
                 async with telethon_lock:
+                    await self.__telethon_client.connect()
                     await self.upload_wrapper(o_files, m_size, size)
+                    await sleep(5)
+                    await self.__telethon_client.disconnect()
             else:
                 await self.upload_wrapper(o_files, m_size, size)
         except Exception as e:
