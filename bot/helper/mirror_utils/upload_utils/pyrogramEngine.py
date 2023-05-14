@@ -176,7 +176,8 @@ class TgUploader:
             else:
                 await self.upload_wrapper(o_files, m_size, size)
         except Exception as e:
-            LOGGER.error(traceback.format_exc())
+            #LOGGER.error(traceback.format_exc())
+            LOGGER.error(f'{e}')
 
     async def upload_wrapper(self, o_files, m_size, size):
         for dirpath, _, files in sorted(await sync_to_async(walk, self.__path)):
