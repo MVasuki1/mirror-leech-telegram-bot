@@ -41,7 +41,7 @@ DRIVES_IDS = []
 INDEX_URLS = []
 GLOBAL_EXTENSION_FILTER = ['aria2', 'nfo', 'txt']
 GLOBAL_EXTENSION_EXCLUSION_FILTER = ['aria2', 'nfo', 'txt']
-GLOBAL_EXTENSION_INCLUSION_FILTER = ['mkv', 'mp4', 'avi']
+GLOBAL_EXTENSION_INCLUSION_FILTER = ['mkv', 'mp4', 'avi', 'epub', 'mobi']
 user_data = {}
 aria2_options = {}
 qbit_options = {}
@@ -485,3 +485,4 @@ scheduler = AsyncIOScheduler(timezone=str(
 
 bot_loop_tasks = []
 bot_loop_tasks_lock = Lock()
+
