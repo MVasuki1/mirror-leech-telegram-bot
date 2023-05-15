@@ -10,6 +10,7 @@ from functools import partial
 from time import time
 
 from bot import DOWNLOAD_DIR, bot, config_dict, user_data, LOGGER
+from bot.modules.ytdlp_http_headers import YTDLP_HTTP_HEADERS
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage
 from bot.helper.telegram_helper.button_build import ButtonMaker
 from bot.helper.ext_utils.bot_utils import get_readable_file_size, is_url, new_task, sync_to_async, new_task, is_rclone_path, new_thread, get_readable_time
@@ -384,6 +385,8 @@ async def _ytdl(client, message, isZip=False, isLeech=False, sameDir={}):
             options[key] = value
 
         options['playlist_items'] = '0'
+
+    options['http_headers'] = YTDLP_HTTP_HEADERS
 
     try:
         result = await sync_to_async(extract_info, link, options)

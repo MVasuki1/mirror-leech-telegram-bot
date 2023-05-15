@@ -8,6 +8,7 @@ from re import search as re_search
 
 from bot import download_dict_lock, download_dict, non_queued_dl, queue_dict_lock
 from bot.helper.telegram_helper.message_utils import sendStatusMessage
+from bot.modules.ytdlp_http_headers import YTDLP_HTTP_HEADERS
 from ..status_utils.yt_dlp_download_status import YtDlpDownloadStatus
 from bot.helper.mirror_utils.status_utils.queue_status import QueueStatus
 from bot.helper.ext_utils.bot_utils import sync_to_async, async_to_sync
@@ -21,6 +22,7 @@ class MyLogger:
         self.obj = obj
 
     def debug(self, msg):
+        LOGGER.debug(msg)
         # Hack to fix changing extension
         if not self.obj.is_playlist:
             if match := re_search(r'.Merger..Merging formats into..(.*?).$', msg) or \
@@ -66,7 +68,8 @@ class YoutubeDLHelper:
                      'overwrites': True,
                      'writethumbnail': True,
                      'trim_file_name': 230}
-
+        self.opts['http_headers'] = YTDLP_HTTP_HEADERS
+        self.opts['concurrent_fragment_downloads'] = 8
     @property
     def download_speed(self):
         return self.__download_speed
@@ -128,6 +131,8 @@ class YoutubeDLHelper:
     def extractMetaData(self, link, name):
         if link.startswith(('rtmp', 'mms', 'rstp', 'rtmps')):
             self.opts['external_downloader'] = 'ffmpeg'
+        self.opts['concurrent_fragment_downloads'] = 8
+        self.opts['config_locations'] = '/home/mk'
         with YoutubeDL(self.opts) as ydl:
             try:
                 result = ydl.extract_info(link, download=False)
