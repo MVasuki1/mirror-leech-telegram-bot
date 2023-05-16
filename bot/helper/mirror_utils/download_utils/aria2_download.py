@@ -12,6 +12,7 @@ async def add_aria2c_download(link, path, listener, filename, auth, ratio, seed_
     a2c_opt = {**aria2_options}
     [a2c_opt.pop(k) for k in aria2c_global if k in aria2_options]
     a2c_opt['dir'] = path
+    a2c_opt['user-agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36'
     if filename:
         a2c_opt['out'] = filename
     if auth:
