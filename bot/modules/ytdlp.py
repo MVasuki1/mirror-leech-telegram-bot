@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import subprocess
+import asyncio
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex, user
 from asyncio import sleep, wait_for, Event, wrap_future
@@ -13,14 +15,26 @@ from bot import DOWNLOAD_DIR, bot, config_dict, user_data, LOGGER
 from bot.modules.ytdlp_http_headers import YTDLP_HTTP_HEADERS
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage
 from bot.helper.telegram_helper.button_build import ButtonMaker
-from bot.helper.ext_utils.bot_utils import get_readable_file_size, is_url, new_task, sync_to_async, new_task, is_rclone_path, new_thread, get_readable_time
+from bot.helper.ext_utils.bot_utils import get_readable_file_size, is_url, new_task, sync_to_async, new_task, is_rclone_path, new_thread, get_readable_time, bot_loop
 from bot.helper.mirror_utils.download_utils.yt_dlp_download import YoutubeDLHelper
 from bot.helper.mirror_utils.rclone_utils.list import RcloneList
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.listeners.tasks_listener import MirrorLeechListener
 from bot.helper.ext_utils.help_messages import YT_HELP_MESSAGE
+from bot.helper.ext_utils.bot_utils import sync_to_async
 
+
+async def check_output(*args, **kwargs):
+    p = await asyncio.create_subprocess_exec(
+        *args, 
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        **kwargs,
+    )   
+    stdout_data, stderr_data = await p.communicate()
+    if p.returncode == 0:
+        return stdout_data
 
 @new_task
 async def select_format(_, query, obj):
@@ -237,6 +251,13 @@ async def _mdisk(link, name):
                     name = resp_json['filename']
             return name, link
 
+def _njav(link, name):
+    link = link.strip().split('\n')[0].strip()
+    video_id = subprocess.check_output(f'''curl -s "{link}" | grep -oP 'Video\(.*\)"\s' | grep -oP "'.*'" | sed "s|'||g"''', shell=True).decode().strip()
+    data_url= subprocess.check_output(f"""curl -s "https://njav.tv/en/api/v/{video_id}/videos" | jq -r '.data[0].url'""", shell=True).decode().strip()
+    m3u_url= subprocess.check_output(f"""curl -s {data_url} | pup 'div[id="player"]' | grep -oP 'https.*m3u8d'""", shell=True).decode().strip()
+    return link.split('/')[-1], m3u_url.replace('\/', '/')
+
 
 @new_task
 async def _ytdl(client, message, isZip=False, isLeech=False, sameDir={}):
@@ -365,6 +386,8 @@ async def _ytdl(client, message, isZip=False, isLeech=False, sameDir={}):
         message, isZip, isLeech=isLeech, pswd=pswd, tag=tag, sameDir=sameDir, rcFlags=rcf, upPath=up)
     if 'mdisk.me' in link:
         name, link = await _mdisk(link, name)
+    if 'njav.tv' in link:
+        name, link = _njav(link, name)
 
     options = {'usenetrc': True, 'cookiefile': 'cookies.txt'}
     if opt:
