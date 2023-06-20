@@ -11,7 +11,7 @@ from bot.helper.ext_utils.task_manager import stop_duplicate_check
 
 
 async def __remove_torrent(client, hash_, tag):
-    await sync_to_async(client.torrents_delete, torrent_hashes=hash_, delete_files=True)
+    await sync_to_async(client.torrents_delete, torrent_hashes=hash_, delete_files=False)
     async with qb_listener_lock:
         if tag in QbTorrents:
             del QbTorrents[tag]

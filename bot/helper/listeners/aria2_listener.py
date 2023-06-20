@@ -60,7 +60,7 @@ async def __onDownloadStarted(api, gid):
                     msg = f"File/Folder is already available in Drive.\nHere are {contents_no} list results:"
                     button = await get_telegraph_list(telegraph_content)
                     await listener.onDownloadError(msg, button)
-                    await sync_to_async(api.remove, [download], force=True, files=True)
+                    await sync_to_async(api.remove, [download], force=False, files=True)
 
 
 @new_thread
@@ -87,13 +87,13 @@ async def __onDownloadComplete(api, gid):
                     f"Cancelling Seed: {download.name} onDownloadComplete")
                 listener = dl.listener()
                 await listener.onUploadError(f"Seeding stopped with Ratio: {dl.ratio()} and Time: {dl.seeding_time()}")
-                await sync_to_async(api.remove, [download], force=True, files=True)
+                await sync_to_async(api.remove, [download], force=False, files=False)
     else:
         LOGGER.info(f"onDownloadComplete: {download.name} - Gid: {gid}")
         if dl := await getDownloadByGid(gid):
             listener = dl.listener()
             await listener.onDownloadComplete()
-            await sync_to_async(api.remove, [download], force=True, files=True)
+            await sync_to_async(api.remove, [download], force=False, files=False)
 
 
 @new_thread
@@ -104,16 +104,16 @@ async def __onBtDownloadComplete(api, gid):
     LOGGER.info(f"onBtDownloadComplete: {download.name} - Gid: {gid}")
     if dl := await getDownloadByGid(gid):
         listener = dl.listener()
-        if listener.select:
-            res = download.files
-            for file_o in res:
-                f_path = file_o.path
-                if not file_o.selected and await aiopath.exists(f_path):
-                    try:
-                        await aioremove(f_path)
-                    except:
-                        pass
-            await clean_unwanted(download.dir)
+        #if listener.select:
+        #    res = download.files
+        #    for file_o in res:
+        #        f_path = file_o.path
+        #        if not file_o.selected and await aiopath.exists(f_path):
+        #            try:
+        #                await aioremove(f_path)
+        #            except:
+        #                pass
+        #    await clean_unwanted(download.dir)
         if listener.seed:
             try:
                 await sync_to_async(api.set_options, {'max-upload-limit': '0'}, [download])
@@ -132,11 +132,11 @@ async def __onBtDownloadComplete(api, gid):
                 if dl := await getDownloadByGid(gid):
                     LOGGER.info(f"Cancelling Seed: {download.name}")
                     await listener.onUploadError(f"Seeding stopped with Ratio: {dl.ratio()} and Time: {dl.seeding_time()}")
-                    await sync_to_async(api.remove, [download], force=True, files=True)
+                    await sync_to_async(api.remove, [download], force=False, files=False)
             else:
                 async with download_dict_lock:
                     if listener.uid not in download_dict:
-                        await sync_to_async(api.remove, [download], force=True, files=True)
+                        await sync_to_async(api.remove, [download], force=False, files=False)
                         return
                     download_dict[listener.uid] = Aria2Status(
                         gid, listener, True)
@@ -144,7 +144,7 @@ async def __onBtDownloadComplete(api, gid):
                 LOGGER.info(f"Seeding started: {download.name} - Gid: {gid}")
                 await update_all_messages()
         else:
-            await sync_to_async(api.remove, [download], force=True, files=True)
+            await sync_to_async(api.remove, [download], force=False, files=False)
 
 
 @new_thread

@@ -247,7 +247,7 @@ class GoogleDriveHelper:
                 self.__total_files += 1
                 new_id = dest_id
             else:
-                osremove(current_file_name)
+                #osremove(current_file_name)
                 new_id = 'filter'
             if self.__is_cancelled:
                 break
@@ -337,11 +337,11 @@ class GoogleDriveHelper:
                         raise err
         if self.__is_cancelled:
             return
-        if not self.__listener.seed or self.__listener.newDir:
-            try:
-                osremove(file_path)
-            except:
-                pass
+        #if not self.__listener.seed or self.__listener.newDir:
+        #    try:
+        #        osremove(file_path)
+        #    except:
+        #        pass
         self.__file_processed_bytes = 0
         # Insert new permissions
         if not config_dict['IS_TEAM_DRIVE']:

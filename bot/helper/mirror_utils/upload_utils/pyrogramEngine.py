@@ -186,10 +186,10 @@ class TgUploader:
             for file_ in natsorted(files):
                 self.__up_path = ospath.join(dirpath, file_)
                 if file_.lower().endswith(tuple(GLOBAL_EXTENSION_EXCLUSION_FILTER)):
-                    await aioremove(self.__up_path)
+                    #await aioremove(self.__up_path)
                     continue
                 if not file_.lower().endswith(tuple(GLOBAL_EXTENSION_INCLUSION_FILTER)):
-                    await aioremove(self.__up_path)
+                    #await aioremove(self.__up_path)
                     continue
                 try:
                     f_size = await aiopath.getsize(self.__up_path)
@@ -233,7 +233,8 @@ class TgUploader:
                     if not self.__is_cancelled and await aiopath.exists(self.__up_path) and \
                         (not self.__listener.seed or self.__listener.newDir or
                          dirpath.endswith("/splited_files_mltb") or '/copied_mltb/' in self.__up_path):
-                        await aioremove(self.__up_path)
+                        pass
+                        #await aioremove(self.__up_path)
         for key, value in list(self.__media_dict.items()):
             for subkey, msgs in list(value.items()):
                 if len(msgs) > 1:
